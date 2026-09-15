@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dash-educacao-mestrado-doutorado
+  namespace: dashs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dash-educacao-mestrado-doutorado
+  template:
+    metadata:
+      labels:
+        app: dash-educacao-mestrado-doutorado
+    spec:
+      serviceAccountName: dataiesb-dashs
+      containers:
+        - name: dash-educacao-mestrado-doutorado
+          image: 248189947068.dkr.ecr.us-east-1.amazonaws.com/dash-educacao-mestrado-doutorado:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8050
+          env:
+            - name: DASH_PREFIX
+              value: /mestrado-doutorado/
+            - name: TRINO_HOST
+              value: trino.trino.svc.cluster.local
+            - name: TRINO_PORT
+              value: "8080"
+            - name: TRINO_USER
+              value: funasa_reader
+            - name: TRINO_CATALOG
+              value: seaweedfs
+            - name: TRINO_SCHEMA
+              value: raw
+          readinessProbe:
+            httpGet:
+              path: /mestrado-doutorado/
+              port: 8050
+            initialDelaySeconds: 45
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /mestrado-doutorado/
+              port: 8050
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dash-educacao-mestrado-doutorado
+  namespace: dashs
+spec:
+  selector:
+    app: dash-educacao-mestrado-doutorado
+  ports:
+    - port: 8050
+      targetPort: 8050
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dash-educacao-mestrado-doutorado-ingress
+  namespace: dashs
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.dataiesb.com
+      http:
+        paths:
+          - path: /mestrado-doutorado
+            pathType: Prefix
+            backend:
+              service:
+                name: dash-educacao-mestrado-doutorado
+                port:
+                  number: 8050

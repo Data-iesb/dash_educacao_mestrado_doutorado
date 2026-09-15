@@ -33,22 +33,27 @@ TRINO_CATALOG = os.getenv("TRINO_CATALOG") or "seaweedfs"
 TRINO_SCHEMA = os.getenv("TRINO_SCHEMA") or "raw"
 TBL_PROGRAMAS = os.getenv("TBL_PROGRAMAS") or "seaweedfs.raw.capes_sucupira_programas_pos"
 
-if not TRINO_PASSWORD:
-    raise RuntimeError("A variável de ambiente TRINO_PASSWORD é obrigatória.")
+# Modo de conexão:
+#  - Se TRINO_PASSWORD estiver definido → Trino público (HTTPS + BasicAuth).
+#  - Caso contrário → Trino in-cluster (HTTP, sem auth), padrão no EKS
+#    (trino.trino.svc.cluster.local:8080). TRINO_HTTP_SCHEME pode forçar o scheme.
+TRINO_HTTP_SCHEME = os.getenv("TRINO_HTTP_SCHEME") or ("https" if TRINO_PASSWORD else "http")
 
 
 def _trino_query(sql: str, max_retries: int = 3) -> pd.DataFrame:
     for tentativa in range(1, max_retries + 1):
         try:
-            conn = trino.dbapi.connect(
+            conn_kwargs = dict(
                 host=TRINO_HOST,
                 port=TRINO_PORT,
                 user=TRINO_USER,
                 catalog=TRINO_CATALOG,
                 schema=TRINO_SCHEMA,
-                http_scheme="https",
-                auth=trino.auth.BasicAuthentication(TRINO_USER, TRINO_PASSWORD),
+                http_scheme=TRINO_HTTP_SCHEME,
             )
+            if TRINO_PASSWORD:
+                conn_kwargs["auth"] = trino.auth.BasicAuthentication(TRINO_USER, TRINO_PASSWORD)
+            conn = trino.dbapi.connect(**conn_kwargs)
             cur = conn.cursor()
             cur.execute(sql)
             cols = [d[0] for d in cur.description]

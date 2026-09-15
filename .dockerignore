@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.example
+.cache
+__pycache__
+*.pyc
+k8s
+buildspec.yml
+AGENT.md
+README.md

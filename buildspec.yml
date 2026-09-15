@@ -1,0 +1,39 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: us-east-1
+    EKS_CLUSTER: dataiesb-cluster
+    ECR_REPO: 248189947068.dkr.ecr.us-east-1.amazonaws.com/dash-educacao-mestrado-doutorado
+    K8S_DEPLOYMENT: dash-educacao-mestrado-doutorado
+    K8S_NAMESPACE: dashs
+    K8S_CONTAINER: dash-educacao-mestrado-doutorado
+    DOCKER_BUILD_DIR: .
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 248189947068.dkr.ecr.us-east-1.amazonaws.com
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:-latest}
+  build:
+    commands:
+      - echo Building Docker image...
+      - docker build -t $ECR_REPO:$IMAGE_TAG -t $ECR_REPO:latest ${DOCKER_BUILD_DIR:-.}
+      - docker push $ECR_REPO:$IMAGE_TAG
+      - docker push $ECR_REPO:latest
+      - touch /tmp/image_pushed_ok
+  post_build:
+    commands:
+      - |
+        if [ ! -f /tmp/image_pushed_ok ]; then
+          echo "Build da imagem falhou, pulando deploy no EKS."
+          exit 1
+        fi
+      - echo Deploying to EKS...
+      - aws eks update-kubeconfig --name $EKS_CLUSTER --region $AWS_DEFAULT_REGION
+      - kubectl apply -f k8s/deployment.yaml
+      - kubectl set image deployment/$K8S_DEPLOYMENT $K8S_CONTAINER=$ECR_REPO:$IMAGE_TAG -n $K8S_NAMESPACE
+      - kubectl rollout status deployment/$K8S_DEPLOYMENT -n $K8S_NAMESPACE --timeout=300s
+      - echo Deploy complete.
