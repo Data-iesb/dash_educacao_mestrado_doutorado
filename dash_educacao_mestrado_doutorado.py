@@ -152,6 +152,7 @@ MODALIDADES = ["Todas"] + sorted(df_programas["nm_modalidade_programa"].dropna()
 GRAUS = ["Todos"] + sorted(df_programas["nm_grau_programa"].dropna().unique().tolist())
 AREAS = ["Todas"] + sorted(df_programas["nm_grande_area_conhecimento"].dropna().unique().tolist())
 SITUACOES = ["Todas"] + sorted(df_programas["ds_situacao_programa"].dropna().unique().tolist())
+REGIAO_PADRAO_EXPLORADOR = "Centro-Oeste" if "Centro-Oeste" in REGIOES else "Todas"
 
 # ── Mapeamento sigla UF → código IBGE (para o mapa coroplético) ─────────────
 UF_PARA_CODIGO_IBGE = {
@@ -514,7 +515,7 @@ def _aba_explorador_layout():
             _titulo("Filtros de Pesquisa"),
             html.Div([
                 _filter_label("Ano", "expl-ano", sorted(ANOS_DISPONIVEIS, reverse=True), ANO_PADRAO, 110),
-                _filter_label("Região", "expl-regiao", REGIOES, "Todas", 160),
+                _filter_label("Região", "expl-regiao", REGIOES, REGIAO_PADRAO_EXPLORADOR, 160),
                 _filter_label("UF", "expl-uf", UFS, "Todas", 110),
                 _filter_label("Modalidade", "expl-modalidade", MODALIDADES, "Todas", 170),
                 _filter_label("Grau", "expl-grau", GRAUS, "Todos", 260),
@@ -783,7 +784,7 @@ def expl_buscar_dados(ano, regiao, uf, modalidade, grau, area, situacao, busca):
     # Dropdown entregar seu valor inicial. Nunca buscar a série completa nesse
     # estado, pois isso gera uma carga muito maior no primeiro carregamento.
     ano = ano if ano is not None else ANO_PADRAO
-    regiao = regiao or "Todas"
+    regiao = regiao or REGIAO_PADRAO_EXPLORADOR
     uf = uf or "Todas"
     modalidade = modalidade or "Todas"
     grau = grau or "Todos"
