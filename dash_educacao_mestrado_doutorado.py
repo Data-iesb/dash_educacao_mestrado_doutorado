@@ -8,6 +8,7 @@ import os
 import json
 import math
 import time
+import unicodedata
 
 import dash
 from dash import Input, Output, State, dcc, html, callback_context, ALL
@@ -152,7 +153,17 @@ MODALIDADES = ["Todas"] + sorted(df_programas["nm_modalidade_programa"].dropna()
 GRAUS = ["Todos"] + sorted(df_programas["nm_grau_programa"].dropna().unique().tolist())
 AREAS = ["Todas"] + sorted(df_programas["nm_grande_area_conhecimento"].dropna().unique().tolist())
 SITUACOES = ["Todas"] + sorted(df_programas["ds_situacao_programa"].dropna().unique().tolist())
-REGIAO_PADRAO_EXPLORADOR = "Centro-Oeste" if "Centro-Oeste" in REGIOES else "Todas"
+
+
+def _normalizar_opcao(texto):
+    texto = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode("ascii")
+    return " ".join(texto.replace("-", " ").split()).lower()
+
+
+REGIAO_PADRAO_EXPLORADOR = next(
+    (regiao for regiao in REGIOES if _normalizar_opcao(regiao) == "centro oeste"),
+    "Todas",
+)
 
 # ── Mapeamento sigla UF → código IBGE (para o mapa coroplético) ─────────────
 UF_PARA_CODIGO_IBGE = {
