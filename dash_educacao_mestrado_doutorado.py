@@ -906,7 +906,37 @@ def _expl_th_sort(label, col_key, sort_col, sort_asc, align="left"):
 )
 def expl_renderizar_tabela(dados_json, sort_state, pagina_atual, selecionado_cd):
     if not dados_json:
-        return html.P("Ajuste os filtros para ver os programas.", style={"color": "#718096"}), html.Div()
+        df_inicial = _aplicar_filtros(df_programas, ano=ANO_PADRAO)
+        if df_inicial.empty:
+            return html.P("Nenhum programa encontrado para o ano padrão.", style={"color": COR_VERMELHO}), html.Div()
+
+        tabela_inicial = (
+            df_inicial.groupby("cd_programa_ies", dropna=False)
+            .agg(
+                programa=("nm_programa_ies", "first"),
+                ies=("nm_entidade_ensino", "first"),
+                sigla_ies=("sg_entidade_ensino", "first"),
+                uf=("sg_uf_programa", "first"),
+                regiao=("nm_regiao", "first"),
+                municipio=("nm_municipio_programa_ies", "first"),
+                area=("nm_grande_area_conhecimento", "first"),
+                area_avaliacao=("nm_area_avaliacao", "first"),
+                modalidade=("nm_modalidade_programa", "first"),
+                situacao=("ds_situacao_programa", "first"),
+                conceito=("cd_conceito_programa", "first"),
+                dependencia=("ds_dependencia_administrativa", "first"),
+                organizacao=("ds_organizacao_academica", "first"),
+            )
+            .reset_index()
+        )
+        graus_inicial = df_inicial.groupby("cd_programa_ies")["nm_grau_programa"].apply(
+            lambda s: ", ".join(sorted(set(s.dropna())))
+        ).reset_index(name="graus")
+        tabela_inicial = pd.merge(tabela_inicial, graus_inicial, on="cd_programa_ies", how="left")
+        for col in _EXPL_COLS_TEXTO:
+            if col in tabela_inicial.columns:
+                tabela_inicial[col] = tabela_inicial[col].fillna("-")
+        dados_json = json.dumps({"vazio": False, "registros": tabela_inicial.to_dict(orient="records")})
 
     dados = json.loads(dados_json)
     if dados.get("vazio") or not dados.get("registros"):
